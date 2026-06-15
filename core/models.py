@@ -104,7 +104,6 @@ class ATSResult(BaseModel):
     jd_matched_skills: List[str] = Field(default_factory=list)
     suggested_renames: List[SuggestedRename] = Field(default_factory=list)
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Critique & Rewrite Models
 # ─────────────────────────────────────────────────────────────────────────────
@@ -177,6 +176,7 @@ class LearningResource(BaseModel):
     platform: str
     estimated_time: str
     priority: str        # "high" | "medium" | "low"
+    search_query: str = ""  # query to find this resource, e.g. "Excel for Finance Professionals CFI YouTube"
 
 
 class LearningRoadmap(BaseModel):

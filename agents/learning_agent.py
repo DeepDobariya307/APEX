@@ -30,6 +30,7 @@ JSON schema:
       "platform": "",
       "estimated_time": "",
       "priority": ""
+      "search_query": ""
     }
   ],
   "project_ideas": [],
@@ -42,6 +43,9 @@ Rules:
 - resources: one recommended resource per missing skill
   - resource_type: course, certification, project, documentation, or tutorial
   - priority: high (required skill), medium (preferred), low (nice to have)
+  - search_query: a concise search query (4-8 words) someone could paste into the
+    platform's search bar to find this exact resource, e.g. "Excel for Finance
+    Professionals CFI" or "AWS Bedrock Lambda tutorial Databricks"
 - project_ideas: 3-4 specific project ideas buildable in 1-2 weeks for GitHub portfolio
 - estimated_ready_in: honest estimate to close all HIGH priority gaps
 - Prioritise free resources over paid where possible

@@ -5,6 +5,7 @@ APEX — Main Streamlit Application
 import email
 import os
 import logging
+import urllib.parse
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -548,6 +549,24 @@ if st.session_state.pipeline_ran and st.session_state.pipeline_result:
                         else "#f59e0b" if r.priority == "medium"
                         else "#6b7280"
                     )
+                    search_url = ""
+                    if r.search_query:
+                        query_encoded = urllib.parse.quote(r.search_query)
+                        platform_lower = r.platform.lower()
+                        if "youtube" in platform_lower:
+                            search_url = f"https://www.youtube.com/results?search_query={query_encoded}"
+                        elif "coursera" in platform_lower:
+                            search_url = f"https://www.coursera.org/search?query={query_encoded}"
+                        elif "udemy" in platform_lower:
+                            search_url = f"https://www.udemy.com/courses/search/?q={query_encoded}"
+                        else:
+                            search_url = f"https://www.google.com/search?q={query_encoded}"
+
+                    link_html = (
+                        f" · <a href='{search_url}' target='_blank' style='color:#fcd34d;'>Find it →</a>"
+                        if search_url else ""
+                    )
+
                     st.markdown(
                         f"<div class='section-card'>"
                         f"<div style='display:flex; justify-content:space-between; align-items:center;'>"
@@ -555,12 +574,11 @@ if st.session_state.pipeline_ran and st.session_state.pipeline_result:
                         f"<span style='color:{priority_color}; font-size:0.72rem; text-transform:uppercase'>{r.priority} priority</span>"
                         f"</div>"
                         f"<div style='color:#9ca3af; font-size:0.85rem; margin-top:0.4rem'>"
-                        f"<strong>{r.resource_name}</strong> — {r.platform} · {r.resource_type} · {r.estimated_time}"
+                        f"<strong>{r.resource_name}</strong> — {r.platform} · {r.resource_type} · {r.estimated_time}{link_html}"
                         f"</div>"
                         f"</div>",
                         unsafe_allow_html=True,
                     )
-
             if learning_roadmap.project_ideas:
                 st.markdown("#### 💡 Portfolio Project Ideas")
                 for i, idea in enumerate(learning_roadmap.project_ideas, 1):
