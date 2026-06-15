@@ -307,26 +307,81 @@ if st.session_state.pipeline_ran and st.session_state.pipeline_result:
             st.divider()
 
             # ── Skill pills ────────────────────────────────────────────────
+            # ── Skill Analysis (5 categories) ────────────────────────────────
             st.markdown("#### 🔑 Skill Analysis")
 
-            if ats.matched_skills:
-                st.markdown("**Matched skills**")
+            parsed_resume = state.get("parsed_resume")
+
+            # 1. Resume skills (categorized)
+            if parsed_resume and parsed_resume.skills_categorized:
+                st.markdown(
+    "<div style='font-size:1.05rem; font-weight:700; color:#fcd34d; margin-top:0.5rem; margin-bottom:0.3rem;'>"
+    "1. Your Resume Skills</div>",
+    unsafe_allow_html=True,
+)
+                for category, skill_list in parsed_resume.skills_categorized.items():
+                    if skill_list:
+                        st.markdown(f"*{category}*")
+                        pills = "".join(
+                            f'<span class="skill-pill skill-matched">{s}</span>'
+                            for s in skill_list
+                        )
+                        st.markdown(pills, unsafe_allow_html=True)
+
+            st.markdown("")
+
+            # 2. Skills matching this JD
+            if ats.jd_matched_skills:
+                st.markdown(
+    "<div style='font-size:1.05rem; font-weight:700; color:#fcd34d; margin-top:0.5rem; margin-bottom:0.3rem;'>"
+    "2. Your Skills Relevant to This Role</div>",
+    unsafe_allow_html=True,
+)
                 pills = "".join(
                     f'<span class="skill-pill skill-matched">{s}</span>'
-                    for s in ats.matched_skills
+                    for s in ats.jd_matched_skills
                 )
                 st.markdown(pills, unsafe_allow_html=True)
 
+            st.markdown("")
+
+            # 3. Suggested renames
+            if ats.suggested_renames:
+                st.markdown(
+    "<div style='font-size:1.05rem; font-weight:700; color:#fcd34d; margin-top:0.5rem; margin-bottom:0.3rem;'>"
+    "3. Suggested Keyword Renames</div>",
+    unsafe_allow_html=True,
+)
+                for r in ats.suggested_renames:
+                    st.markdown(
+                        f"- Consider changing **\"{r.resume_term}\"** → "
+                        f"**\"{r.suggested_term}\"** (matches JD term: *{r.jd_term}*)"
+                    )
+
+            st.markdown("")
+
+            # 4. Missing required skills
             if ats.missing_required_skills:
-                st.markdown("**Missing required skills**")
+                st.markdown(
+    "<div style='font-size:1.05rem; font-weight:700; color:#fcd34d; margin-top:0.5rem; margin-bottom:0.3rem;'>"
+    "4. Must-Have Skills Not Found in Your Resume</div>",
+    unsafe_allow_html=True,
+)
                 pills = "".join(
                     f'<span class="skill-pill skill-missing">{s}</span>'
                     for s in ats.missing_required_skills
                 )
                 st.markdown(pills, unsafe_allow_html=True)
 
+            st.markdown("")
+
+            # 5. Missing preferred skills
             if ats.missing_preferred_skills:
-                st.markdown("**Missing preferred skills**")
+                st.markdown(
+    "<div style='font-size:1.05rem; font-weight:700; color:#fcd34d; margin-top:0.5rem; margin-bottom:0.3rem;'>"
+    "5. Preferred Skills Not Found in Your Resume</div>",
+    unsafe_allow_html=True,
+)
                 pills = "".join(
                     f'<span class="skill-pill skill-preferred">{s}</span>'
                     for s in ats.missing_preferred_skills

@@ -28,6 +28,8 @@ JSON schema:
   },
   "summary": "",
   "skills": [],
+  "skills_categorized": {},  # e.g. {"Programming Languages": ["Python", "Java"], "Frameworks": ["React", "Django"], "Tools": ["Git", "Docker"], "Soft Skills": ["Teamwork", "Communication"]}
+
   "experience": [
     {
       "title": "",
@@ -64,6 +66,10 @@ near the bottom of the resume — do not skip it.
 Rules:
 - Extract ALL bullet points verbatim
 - Skills should be a flat list of individual technologies/tools
+- skills_categorized: if the resume groups skills under headers (e.g. "Programming
+  Languages", "Frameworks", "Tools", "Cloud", "Soft Skills"), reproduce those exact
+  category names as keys, each mapping to a list of skills under that header. If the
+  resume does NOT categorize skills, return a single key "General" containing all skills.
 - If a field is not present, leave it as empty string or empty list
 - Do not invent or infer information not present in the text
 """

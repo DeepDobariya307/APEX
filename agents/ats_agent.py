@@ -10,7 +10,7 @@ import re
 from typing import List, Set, Tuple
 from agents.base_agent import BaseAgent
 from config import config
-from core.models import ATSResult, ParsedJobDescription, ParsedResume, SkillMatch
+from core.models import ATSResult, ParsedJobDescription, ParsedResume, SkillMatch, SuggestedRename
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,11 @@ JSON schema:
   "strengths": [],
   "weaknesses": [],
   "missing_required_skills": [],
-  "missing_preferred_skills": []
+  "missing_preferred_skills": [],
+  "jd_matched_skills": [],
+  "suggested_renames": [
+    {"resume_term": "", "suggested_term": "", "jd_term": ""}
+  ]
 }
 
 Scoring rubric:
@@ -57,6 +61,26 @@ requirement"), it must NOT also appear in missing_required_skills or
 missing_preferred_skills. Remove any such contradictions before responding.
 A skill is either present (and possibly noted as a strength/limitation in weaknesses
 if the LEVEL is insufficient) OR missing entirely — never both.
+
+JD_MATCHED_SKILLS:
+List every skill/competency from the candidate's resume that is relevant to this JD —
+broader than just required_skills/preferred_skills. Match on MEANING, not exact wording.
+Include technical skills, tools, domains, and relevant soft skills/competencies that
+genuinely appear in the resume and connect to something in the JD (responsibilities,
+qualifications, or keywords). Each entry should be phrased using the candidate's OWN
+resume terminology (not the JD's wording) — this list represents "what the candidate
+already has that's relevant here."
+
+SUGGESTED_RENAMES:
+Identify cases where the candidate's resume uses different WORDING for a concept the
+JD also expresses, where renaming would improve ATS keyword matching WITHOUT changing
+meaning. Example: resume says "fast learner", JD says "quick learning ability" — these
+mean the same thing, suggest renaming "fast learner" to "quick learning ability".
+Only suggest renames where the meaning is genuinely equivalent. Each entry needs:
+  - resume_term: the exact phrase as it appears in the resume
+  - suggested_term: the ATS-friendly rewording
+  - jd_term: the JD phrase that motivated this suggestion
+If no good renames exist, return an empty list — do not force suggestions.
 
 HARD FILTER for missing_required_skills / missing_preferred_skills:
 Before adding ANY item to these lists, ask: "Is this a specific tool, technology,
@@ -116,6 +140,10 @@ class ATSAgent(BaseAgent):
             strengths=llm_result.get("strengths", []),
             weaknesses=llm_result.get("weaknesses", []),
             skill_matches=skill_matches,
+            jd_matched_skills=llm_result.get("jd_matched_skills", []),
+            suggested_renames=[
+                SuggestedRename(**r) for r in llm_result.get("suggested_renames", [])
+            ],
         )
 
     def _match_skills(

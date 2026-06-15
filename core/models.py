@@ -48,6 +48,7 @@ class ParsedResume(BaseModel):
     contact: ContactInfo = Field(default_factory=ContactInfo)
     summary: str = ""
     skills: List[str] = Field(default_factory=list)
+    skills_categorized: dict = Field(default_factory=dict)
     experience: List[Experience] = Field(default_factory=list)
     education: List[Education] = Field(default_factory=list)
     projects: List[Project] = Field(default_factory=list)
@@ -85,6 +86,11 @@ class SkillMatch(BaseModel):
     found_in_resume: bool
     importance: str = "required"  # "required" | "preferred"
 
+class SuggestedRename(BaseModel):
+    resume_term: str
+    suggested_term: str
+    jd_term: str
+
 
 class ATSResult(BaseModel):
     ats_score: int = 0                               # 0–100
@@ -95,6 +101,8 @@ class ATSResult(BaseModel):
     strengths: List[str] = Field(default_factory=list)
     weaknesses: List[str] = Field(default_factory=list)
     skill_matches: List[SkillMatch] = Field(default_factory=list)
+    jd_matched_skills: List[str] = Field(default_factory=list)
+    suggested_renames: List[SuggestedRename] = Field(default_factory=list)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -120,7 +128,7 @@ class RewrittenBullet(BaseModel):
     original: str
     rewritten: str
     keywords_added: List[str] = Field(default_factory=list)
-
+    recommendation: str = ""
 
 class RewriteResult(BaseModel):
     rewritten_summary: str = ""
@@ -183,4 +191,4 @@ class RewrittenBullet(BaseModel):
     original: str
     rewritten: str = ""
     keywords_added: List[str] = Field(default_factory=list)
-    recommendation: str = ""
+    recommendation: str = ""  # e.g. "Keep as is", "Rewrite for clarity", "Add achievement metric", etc.
