@@ -39,6 +39,11 @@ Rules:
 5. If candidate is a student: mention internship type
 6. If candidate has work permit: mention it briefly in closing
 7. Do NOT use hollow phrases like "I am passionate about" or "I would be a great fit"
+7a. Do NOT use hollow phrases like "I am passionate about" or "I would be a great fit"
+7b. NEVER misstate language proficiency levels. If the candidate's resume shows
+    "German (A2)", the cover letter must NOT say "fluent in German" or imply a level
+    beyond A2. If German is relevant to the role, phrase it honestly, e.g. "currently
+    developing my German language skills (A2)" — never claim fluency that isn't true.
 8. Do NOT mention LinkedIn, GitHub, or IEEE links
 9. subject_line: "Application for [Job Title] at [Company]"
 10. keywords_used: list the JD keywords you wove into the letter

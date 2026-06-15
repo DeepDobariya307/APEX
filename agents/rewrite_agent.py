@@ -63,7 +63,15 @@ Power BI/DAX/dashboards were involved.
 RULES:
 1. Never introduce a tool, platform, or technology name that does not appear anywhere
    in the candidate's original resume text.
-2. Never invent metrics, team sizes, stakeholder counts, or business outcomes.
+2a. Never invent metrics, team sizes, stakeholder counts, or business outcomes.
+2b. NEVER alter, upgrade, or omit language proficiency levels. If the candidate's
+    resume states "German (A2)", you may NEVER write "fluent in German", "German
+    proficiency", or any phrasing that implies a higher level than stated. If you
+    mention German at all, you MUST preserve the exact level (e.g. "German (A2,
+    actively improving)"). The same applies to ALL languages and ALL certifications/
+    proficiency levels anywhere in the resume — these are factual claims with legal/
+    professional consequences if misrepresented and must be reproduced exactly as
+    given, never upgraded.
 3. Never change the subject/domain of a project. An NLP project must remain described
    as an NLP/data project — you may emphasise its transferable qualities only.
 4. If the candidate has GENUINELY relevant experience for a JD skill, you may use that

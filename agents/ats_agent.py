@@ -76,8 +76,15 @@ Identify cases where the candidate's resume uses different WORDING for a concept
 JD also expresses, where renaming would improve ATS keyword matching WITHOUT changing
 meaning. Example: resume says "fast learner", JD says "quick learning ability" — these
 mean the same thing, suggest renaming "fast learner" to "quick learning ability".
+
+CRITICAL: "resume_term" MUST be a phrase that appears VERBATIM in the RESUME text
+provided below (in skills, summary, experience bullets, or project bullets). Before
+including any rename suggestion, verify the exact resume_term string exists in the
+resume content shown to you. If you cannot find an exact match in the resume, do not
+suggest a rename for it.
+
 Only suggest renames where the meaning is genuinely equivalent. Each entry needs:
-  - resume_term: the exact phrase as it appears in the resume
+  - resume_term: the exact phrase as it appears in the resume (verbatim, verified)
   - suggested_term: the ATS-friendly rewording
   - jd_term: the JD phrase that motivated this suggestion
 If no good renames exist, return an empty list — do not force suggestions.
