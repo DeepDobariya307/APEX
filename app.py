@@ -419,7 +419,8 @@ if st.session_state.pipeline_ran and st.session_state.pipeline_result:
                     st.markdown(
                         f'<div class="bullet-before">❌ {rb.original}</div>'
                         f'<div class="bullet-after" style="border-left-color:#f59e0b; color:#fcd34d;">'
-                        f'⚠️ Recommend removing this bullet — no honest reframing fits this role.</div>',
+                        f'⚠️ This bullet has limited relevance to this specific role. '
+                        f'Consider de-emphasising it for this application — but keep it on your master resume.</div>',
                         unsafe_allow_html=True,
                     )
                     

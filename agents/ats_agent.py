@@ -116,12 +116,14 @@ class ATSAgent(BaseAgent):
         llm_result = self._llm_analyze(resume, jd)
 
         strengths_text = " ".join(llm_result.get("strengths", [])).lower()
+        jd_matched_text = " ".join(llm_result.get("jd_matched_skills", [])).lower()
 
         def _contradicts_strength(skill: str) -> bool:
             words = [w for w in re.findall(r"[a-zA-Z]+", skill.lower()) if len(w) > 3]
             if not words:
                 return False
-            return any(w in strengths_text for w in words)
+            combined_text = strengths_text + " " + jd_matched_text
+            return any(w in combined_text for w in words)
 
         raw_missing_required = list(
             set(llm_result.get("missing_required_skills", [])) | set(missing_required)
@@ -132,6 +134,27 @@ class ATSAgent(BaseAgent):
 
         all_missing_required = [s for s in raw_missing_required if not _contradicts_strength(s)]
         all_missing_preferred = [s for s in raw_missing_preferred if not _contradicts_strength(s)]
+        # Build a comprehensive resume text that matches what the LLM actually sees
+        resume_text_lower = " ".join([
+            resume.raw_text,
+            " ".join(resume.skills),
+            " ".join(bullet for exp in resume.experience for bullet in exp.bullets),
+            " ".join(
+                " ".join(p.bullets) + " " + p.description
+                for p in resume.projects
+            ),
+        ]).lower()
+        raw_renames = []
+        for r in llm_result.get("suggested_renames", []):
+            try:
+                if isinstance(r, dict) and "resume_term" in r and "suggested_term" in r and "jd_term" in r:
+                    raw_renames.append(SuggestedRename(**r))
+            except Exception:
+                pass
+        filtered_renames = [
+            r for r in raw_renames
+            if r.resume_term.lower() in resume_text_lower
+        ]
 
         keyword_coverage = max(
             self._keyword_coverage(resume, jd),
@@ -148,9 +171,8 @@ class ATSAgent(BaseAgent):
             weaknesses=llm_result.get("weaknesses", []),
             skill_matches=skill_matches,
             jd_matched_skills=llm_result.get("jd_matched_skills", []),
-            suggested_renames=[
-                SuggestedRename(**r) for r in llm_result.get("suggested_renames", [])
-            ],
+            suggested_renames=filtered_renames,
+                
         )
 
     def _match_skills(

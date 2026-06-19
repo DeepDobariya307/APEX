@@ -36,7 +36,10 @@ Rules:
    - The body MUST END with the closing line "Sincerely," or "Best regards," followed by a newline, and that's it — do NOT put the candidate's name after it. The name is added separately by the application, not by you.
 3. Tone: professional but human — not robotic, not sycophantic
 4. Naturally use 5-8 keywords from the JD
-5. If candidate is a student: mention internship type
+5. If candidate is doing a mandatory internship (Pflichtpraktikum): do NOT describe
+   the position itself as a Pflichtpraktikum. Instead phrase it as: "I am applying
+   for the [Job Title] position, which I intend to complete as part of my mandatory
+   internship (Pflichtpraktikum) requirement at BTU Cottbus-Senftenberg."
 6. If candidate has work permit: mention it briefly in closing
 7. Do NOT use hollow phrases like "I am passionate about" or "I would be a great fit"
 7a. Do NOT use hollow phrases like "I am passionate about" or "I would be a great fit"
