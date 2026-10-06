@@ -21,7 +21,7 @@ from config import config
 from core.document_processor import DocumentProcessor
 from graph.orchestrator import apex_graph
 from graph.state import APEXState
-from ui.styles import apply_styles, icon, gauge, graph_svg
+from ui.styles import apply_styles, icon, gauge
 from agents.interview_agent import InterviewAgent
 
 st.set_page_config(
@@ -39,6 +39,8 @@ def init_session():
         "agent_log": [],
         "interview_kit": None,
         "theme": "light",
+        "jd_source": "Paste text",
+        "resume_doc": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -148,7 +150,7 @@ def render_trace(entries, running=None, finished=False) -> str:
         f'<div class="apex-kicker">{count}</div>'
         "</div>"
         f'<div class="apex-seg">{"".join(seg)}</div>'
-        f'<div>{"".join(lines)}</div>'
+        f'<div class="apex-log">{"".join(lines)}</div>'
     )
 
 
@@ -159,21 +161,40 @@ def strip_status(status: str) -> str:
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     md(
-        '<div style="font-family:var(--apex-font);font-weight:700;font-size:34px;'
-        'letter-spacing:-0.03em;color:var(--apex-display);line-height:1">APEX</div>'
-        '<div class="apex-kicker" style="padding-top:7px">Six agents, one graph</div>'
+        '<div class="apex-brand">APEX</div>'
+        '<div class="apex-brand-sub">Tailors your résumé to one job posting</div>'
     )
-    st.divider()
 
-    md('<div class="apex-kicker" style="margin-bottom:4.6px">Résumé</div>')
+    md('<div class="apex-label first">Résumé</div>')
     resume_file = st.file_uploader(
         "Upload Resume", type=["pdf", "txt"], label_visibility="collapsed", key="resume_upload"
     )
+    # The widget hands the file back on the rerun that FOLLOWS the upload
+    # handshake. On a slow host that rerun can report None while the browser is
+    # already showing the file card — which is why the run gate said the résumé
+    # was missing while it was plainly sitting in the dropzone. Mirror the last
+    # real file, and clear it only when the widget itself is empty.
+    if resume_file is not None:
+        st.session_state.resume_doc = resume_file
+    elif st.session_state.get("resume_upload") is None:
+        st.session_state.resume_doc = None
+    resume_file = st.session_state.resume_doc
 
-    md('<div class="apex-kicker" style="margin:9.2px 0 4.6px">Job description</div>')
-    jd_source = st.radio(
-        "JD input method", ["Paste text", "Upload PDF"], horizontal=True, label_visibility="collapsed"
-    )
+    md('<div class="apex-label">Job description</div>')
+    mode_cols = st.columns(2, gap="small")
+    for col, (mode, mode_key) in zip(
+        mode_cols, (("Paste text", "jd_mode_paste"), ("Upload PDF", "jd_mode_pdf"))
+    ):
+        with col:
+            if st.button(
+                mode,
+                key=mode_key,
+                use_container_width=True,
+                type="primary" if st.session_state.jd_source == mode else "secondary",
+            ):
+                st.session_state.jd_source = mode
+                st.rerun()
+    jd_source = st.session_state.jd_source
 
     jd_text_input = None
     jd_file = None
@@ -181,7 +202,7 @@ with st.sidebar:
         jd_text_input = st.text_area(
             "Paste JD",
             placeholder="Paste the full job description here…",
-            height=180,
+            height=140,
             label_visibility="collapsed",
         )
     else:
@@ -189,8 +210,7 @@ with st.sidebar:
             "Upload JD PDF", type=["pdf", "txt"], label_visibility="collapsed", key="jd_upload"
         )
 
-    st.divider()
-    md('<div class="apex-kicker" style="margin-bottom:4.6px">Application type</div>')
+    md('<div class="apex-label">Application type</div>')
     internship_type = st.selectbox(
         "Application type",
         [
@@ -204,8 +224,6 @@ with st.sidebar:
         label_visibility="collapsed",
     )
     has_work_permit = st.checkbox("Mention German work permit in cover letter", value=True)
-
-    st.divider()
 
     has_jd = bool(jd_text_input and jd_text_input.strip()) or jd_file is not None
     has_resume = resume_file is not None
@@ -221,14 +239,14 @@ with st.sidebar:
 
     run_button = st.button(
         "Run the pipeline",
+        key="run_pipeline",
         type="primary",
         use_container_width=True,
         disabled=not (has_resume and has_jd),
     )
-    md('<div class="apex-note" style="font-size:15px;padding-top:10px">About ninety seconds. Claude Sonnet and Haiku.</div>')
+    md('<div class="apex-note">About 90 seconds · Claude Sonnet and Haiku</div>')
 
     if st.session_state.pipeline_ran:
-        st.divider()
         if st.button("Reset", use_container_width=True):
             st.session_state.pipeline_result = None
             st.session_state.pipeline_ran = False
@@ -241,18 +259,17 @@ with st.sidebar:
 nav_col, theme_col = st.columns([7, 1])
 with nav_col:
     md(
-        '<div style="display:flex;gap:20px;align-items:baseline;font-size:16px;padding-top:12px">'
-        '<span style="font-weight:600">Pipeline</span>'
-        f'<span style="color:var(--apex-dim)">LangGraph · six nodes · threshold {config.ATS_PASS_THRESHOLD}</span>'
-        "</div>"
+        f'<div class="apex-navline">LangGraph pipeline · six agents · pass mark {config.ATS_PASS_THRESHOLD}</div>'
     )
 with theme_col:
     going_dark = st.session_state.theme == "light"
+    # A track with a sliding knob. The marker span gives the stylesheet a hook
+    # that does not depend on Streamlit's per-key container classes; the label
+    # is the glyph for the CURRENT theme and rides inside the knob.
+    md('<span id="apex-theme-marker"></span>')
     if st.button(
-        "Dark" if going_dark else "Light",
+        "\u2600" if going_dark else "\u263e",
         key="theme_toggle",
-        use_container_width=True,
-        help="Switch theme",
     ):
         st.session_state.theme = "dark" if going_dark else "light"
         st.rerun()
@@ -260,34 +277,30 @@ with theme_col:
 
 # ── Empty state ───────────────────────────────────────────────────────────────
 if not st.session_state.pipeline_ran and not run_button:
+    t = config.ATS_PASS_THRESHOLD
     steps = [
-        ("1", "Ingest", "Résumé and posting extracted to plain text with pdfplumber."),
-        ("2", "Parse", "A strict profile: contact, skills, experience, projects."),
-        ("3", "Optimise", f"Below {config.ATS_PASS_THRESHOLD} the graph loops: critique, rewrite, re-score."),
-        ("4", "Produce", "Cover letter, interview kit, a roadmap for the gaps."),
+        ("Step 1", "Read", "Your résumé and the posting are extracted to plain text.", ""),
+        ("Step 2", "Score", "Skills and experience are parsed and scored like an ATS would.", ""),
+        ("Step 3", "Improve", f"Below {t}, it critiques and rewrites, then scores again.", " loop"),
+        ("Step 4", "Deliver", "Cover letter, interview prep and a learning plan.", ""),
     ]
     step_html = "".join(
-        f'<div><div class="apex-step-num">{n}</div>'
-        f'<div class="apex-step-title">{esc(t)}</div>'
+        f'<div class="apex-step{cls}"><div class="apex-step-num">{n}</div>'
+        f'<div class="apex-step-title">{esc(ti)}</div>'
         f'<div class="apex-step-body">{esc(d)}</div></div>'
-        for n, t, d in steps
+        for n, ti, d, cls in steps
     )
 
     md(
-        '<div class="apex-hero"><div class="apex-hero-field"></div>'
-        '<div class="apex-hero-inner">'
-        '<div class="apex-eyebrow"><span class="apex-dot"></span>Six agents · one graph · Claude</div>'
-        '<div class="apex-display">Past the filter,<br><em>into the room.</em></div>'
-        '<div class="apex-drawn-rule"></div>'
-        '<div class="apex-lede">Six agents read your résumé the way an applicant tracking '
-        "system does — then rewrite it the way a hiring manager reads. Scored, critiqued, "
-        "and rewritten until it clears the threshold.</div>"
-        "</div></div>"
-        '<div class="apex-rule"></div>'
+        '<div class="apex-intro">'
+        '<div><div class="apex-title">Get your résumé past the filter and into the room.</div>'
+        '<div class="apex-lede">Add your résumé and the job description on the left, then run the pipeline. '
+        "You get an ATS score, a rewritten résumé, a cover letter and interview prep for this one role.</div></div>"
         f'<div class="apex-steps">{step_html}</div>'
-        '<div class="apex-rule"></div>'
-        '<div class="apex-kicker" style="padding-bottom:13.8px">The graph</div>'
-        + graph_svg(config.ATS_PASS_THRESHOLD)
+        '<div class="apex-route"><b>How the loop works.</b> '
+        f"A score of {t} or more goes straight to the cover letter. Below {t}, the résumé is critiqued, "
+        f"rewritten and scored again, at most {config.MAX_REWRITE_ITERATIONS} times.</div>"
+        "</div>"
     )
     st.stop()
 
@@ -446,13 +459,15 @@ if st.session_state.pipeline_ran and st.session_state.pipeline_result:
                     + tags(ats.missing_preferred_skills, "apex-tag-neutral") + "</div>"
                 )
             if parsed_resume and parsed_resume.skills_categorized:
-                cats = "".join(
-                    f'<div style="padding-top:13.8px"><div class="apex-metric-label" '
-                    f'style="padding-bottom:6px">{esc(cat)}</div>{tags(sk)}</div>'
+                rows = "".join(
+                    f'<dt>{esc(cat)}</dt><dd>{esc(", ".join(str(s) for s in sk))}</dd>'
                     for cat, sk in parsed_resume.skills_categorized.items() if sk
                 )
-                if cats:
-                    blocks.append(f'<div><div class="apex-h">Your résumé skills</div>{cats}</div>')
+                if rows:
+                    blocks.append(
+                        '<div class="apex-section"><div class="apex-h">Your résumé skills</div>'
+                        f'<dl class="apex-skillset">{rows}</dl></div>'
+                    )
             if ats.suggested_renames:
                 rows = "".join(
                     f"<tr><td>{esc(r.resume_term)}</td>"
@@ -461,7 +476,7 @@ if st.session_state.pipeline_ran and st.session_state.pipeline_result:
                     for r in ats.suggested_renames
                 )
                 blocks.append(
-                    '<div><div class="apex-h" style="padding-bottom:9.2px">Suggested renames</div>'
+                    '<div><div class="apex-h">Suggested renames</div>'
                     '<table class="apex-table"><thead><tr><th>Your term</th><th>Rename to</th>'
                     f"<th>Matches</th></tr></thead><tbody>{rows}</tbody></table></div>"
                 )
@@ -688,6 +703,7 @@ if st.session_state.pipeline_ran and st.session_state.pipeline_result:
                     )
                 md(
                     '<div class="apex-rule"></div>'
+                    '<div class="apex-h">Resources</div>'
                     '<table class="apex-table"><thead><tr><th>Skill</th><th>Resource</th>'
                     f'<th class="right">Priority</th></tr></thead><tbody>{"".join(rows)}</tbody></table>'
                 )

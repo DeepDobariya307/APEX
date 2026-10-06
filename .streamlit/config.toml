@@ -1,10 +1,23 @@
 [theme]
-base = "dark"
-primaryColor = "#f59e0b"
-backgroundColor = "#0a0a0f"
-secondaryBackgroundColor = "#111118"
-textColor = "#e2e0f0"
+# Streamlit paints its own widgets from these values. They match the LIGHT
+# tokens in ui/styles.py so native controls (checkbox, focus ring, menus) agree
+# with the stylesheet. Dark mode is applied on top by ui/styles.py.
+base = "light"
+primaryColor = "#064E3B"
+backgroundColor = "#F8F3E6"
+secondaryBackgroundColor = "#F0E8D4"
+textColor = "#1B1F1C"
 font = "sans serif"
+
+[server]
+# Spaces terminates TLS in front of the app, so Streamlit's XSRF check rejects
+# the upload POST and the file never reaches the server. Documented workaround.
+enableXsrfProtection = false
+enableCORS = false
+maxUploadSize = 25
+
+[browser]
+gatherUsageStats = false
 
 [client]
 toolbarMode = "minimal"
