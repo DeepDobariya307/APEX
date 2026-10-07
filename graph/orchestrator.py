@@ -42,7 +42,7 @@ def node_parse(state: APEXState) -> dict:
             "parsed_resume": parsed_resume,
             "parsed_jd": parsed_jd,
             "status": f"✅ Documents parsed — {len(parsed_resume.skills)} skills found in resume",
-            "completed_nodes": list(state.get("completed_nodes", [])) + ["parse"],
+            "completed_nodes": ["parse"],
         }
     except Exception as e:
         logger.error("[node_parse] Error: %s", e)
@@ -74,7 +74,7 @@ def node_ats_score(state: APEXState) -> dict:
             "parsed_resume": parsed_resume,
             "parsed_jd": parsed_jd,
             "status": f"✅ ATS Score: {ats_result.ats_score}/100 — {len(ats_result.missing_required_skills)} missing required skills",
-            "completed_nodes": list(state.get("completed_nodes", [])) + ["ats_score"],
+            "completed_nodes": ["ats_score"],
         }
     except Exception as e:
         logger.error("[node_ats_score] Error: %s", e)
@@ -100,11 +100,11 @@ def node_critique(state: APEXState) -> dict:
             "parsed_resume": parsed_resume,
             "parsed_jd": parsed_jd,
             "status": f"✅ Critique complete — {len(critique.weak_bullets)} weak bullets identified",
-            "completed_nodes": list(state.get("completed_nodes", [])) + [f"critique_{iteration}"],
+            "completed_nodes": [f"critique_{iteration}"],
         }
     except Exception as e:
         logger.error("[node_critique] Error: %s", e)
-        return {"error": f"Critique error: {e}"}
+        return {"error": f"Critique error: {e}", "rewrite_iteration": iteration}
 
 
 def node_rewrite(state: APEXState) -> dict:
@@ -126,7 +126,7 @@ def node_rewrite(state: APEXState) -> dict:
             "parsed_resume": updated_resume,
             "parsed_jd": parsed_jd,
             "status": f"✅ Rewrite complete — {len(rewrite.keywords_injected)} keywords injected",
-            "completed_nodes": list(state.get("completed_nodes", [])) + [f"rewrite_{iteration}"],
+            "completed_nodes": [f"rewrite_{iteration}"],
         }
     except Exception as e:
         logger.error("[node_rewrite] Error: %s", e)
@@ -150,7 +150,7 @@ def node_cover_letter(state: APEXState) -> dict:
             "parsed_resume": parsed_resume,
             "parsed_jd": parsed_jd,
             "status": f"✅ Cover letter written — {cl.word_count} words",
-            "completed_nodes": list(state.get("completed_nodes", [])) + ["cover_letter"],
+            "completed_nodes": ["cover_letter"],
         }
     except Exception as e:
         logger.error("[node_cover_letter] Error: %s", e)
@@ -167,7 +167,7 @@ def node_learning(state: APEXState) -> dict:
         return {
             "learning_roadmap": roadmap,
             "status": f"✅ Learning roadmap complete — {len(roadmap.resources)} resources",
-            "completed_nodes": list(state.get("completed_nodes", [])) + ["learning"],
+            "completed_nodes": ["learning"],
         }
     except Exception as e:
         logger.error("[node_learning] Error: %s", e)
@@ -176,7 +176,10 @@ def node_learning(state: APEXState) -> dict:
 
 # ── Routing ───────────────────────────────────────────────────────────────────
 
-def route_after_ats(state: APEXState) -> Literal["critique", "cover_letter"]:
+def route_after_ats(state: APEXState) -> Literal["critique", "cover_letter", "end"]:
+    if state.get("error") or state.get("ats_result") is None:
+        logger.error("ROUTING → end (error: %s)", state.get("error"))
+        return "end"
     ats_result = state.get("ats_result")
     current_score = ats_result.ats_score if ats_result is not None else 0
     iteration = state.get("rewrite_iteration", 0)
@@ -227,9 +230,9 @@ def build_graph() -> StateGraph:
 
     graph.set_entry_point("parse")
 
-    graph.add_edge("parse", "ats_score")
-    graph.add_edge("critique", "rewrite")
-    graph.add_edge("rewrite", "ats_score")
+    graph.add_conditional_edges("critique", lambda s: "end" if s.get("error") else "rewrite", {"rewrite": "rewrite", "end": END})
+    graph.add_conditional_edges("rewrite", lambda s: "end" if s.get("error") else "ats_score", {"ats_score": "ats_score", "end": END})
+    graph.add_conditional_edges("parse", lambda s: "end" if s.get("error") else "ats_score", {"ats_score": "ats_score", "end": END})
 
     graph.add_conditional_edges(
         "ats_score",
@@ -237,6 +240,7 @@ def build_graph() -> StateGraph:
         {
             "critique": "critique",
             "cover_letter": "cover_letter",
+            "end": END,
         },
     )
 

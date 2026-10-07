@@ -31,28 +31,56 @@ class BaseAgent:
         self.model = model or config.CLAUDE_PRIMARY_MODEL
         self.max_tokens = max_tokens or config.MAX_TOKENS
 
-    def _call(self, system: str, user: str, temperature: float = 0.0) -> str:
-        message = self.client.messages.create(
+    # Newer anthropic SDKs dropped `temperature` from messages.create(). Send it
+    # when the installed SDK accepts it; otherwise retry once without it.
+    _supports_temperature = True
+
+    def _kwargs(self, system: str, user: str, temperature: float) -> dict:
+        kw = dict(
             model=self.model,
             max_tokens=self.max_tokens,
-            temperature=temperature,
             system=system,
             messages=[{"role": "user", "content": user}],
         )
-        return message.content[0].text
+        if BaseAgent._supports_temperature:
+            kw["temperature"] = temperature
+        return kw
 
-    def _call_streaming(self, system: str, user: str, temperature: float = 0.0) -> str:
+    @staticmethod
+    def _is_temperature_error(e: Exception) -> bool:
+        return "temperature" in str(e)
+
+    @staticmethod
+    def _text(message) -> str:
+        return "".join(getattr(b, "text", "") for b in message.content)
+
+    def _call(self, system: str, user: str, temperature: float = 0.0) -> str:
+        try:
+            message = self.client.messages.create(**self._kwargs(system, user, temperature))
+        except (TypeError, anthropic.BadRequestError) as e:
+            if not (BaseAgent._supports_temperature and self._is_temperature_error(e)):
+                raise
+            logger.warning("SDK/model rejects temperature, retrying without it")
+            BaseAgent._supports_temperature = False
+            message = self.client.messages.create(**self._kwargs(system, user, temperature))
+        return self._text(message)
+
+    def _stream_once(self, system: str, user: str, temperature: float) -> str:
         full_text = ""
-        with self.client.messages.stream(
-            model=self.model,
-            max_tokens=self.max_tokens,
-            temperature=temperature,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-        ) as stream:
+        with self.client.messages.stream(**self._kwargs(system, user, temperature)) as stream:
             for text in stream.text_stream:
                 full_text += text
         return full_text
+
+    def _call_streaming(self, system: str, user: str, temperature: float = 0.0) -> str:
+        try:
+            return self._stream_once(system, user, temperature)
+        except (TypeError, anthropic.BadRequestError) as e:
+            if not (BaseAgent._supports_temperature and self._is_temperature_error(e)):
+                raise
+            logger.warning("SDK/model rejects temperature, retrying without it")
+            BaseAgent._supports_temperature = False
+            return self._stream_once(system, user, temperature)
 
     @staticmethod
     def _parse_json(text: str) -> Dict[str, Any]:
