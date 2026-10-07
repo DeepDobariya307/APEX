@@ -450,6 +450,44 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
 .stApp [data-testid="stFileUploader"] button[kind] { background: var(--apex-surface) !important; color: var(--apex-ink) !important; border: 1px solid var(--apex-line-strong) !important; box-shadow: none !important; }
 .stApp [data-testid="stFileUploaderDeleteBtn"] button { border: 0 !important; background: transparent !important; }
 
+/* ── dark-mode fixes: Streamlit paints textarea / select / menus from the LIGHT
+     config theme, so every inner layer is repainted from the current tokens ── */
+.stApp .stTextArea [data-baseweb="textarea"], .stApp .stTextArea [data-baseweb="textarea"] > div,
+.stApp .stTextArea [data-baseweb="base-input"], .stApp .stTextArea textarea,
+.stApp .stTextInput [data-baseweb="input"], .stApp .stTextInput [data-baseweb="input"] > div, .stApp .stTextInput input {
+    background: var(--apex-surface) !important; background-color: var(--apex-surface) !important;
+    color: var(--apex-ink) !important; -webkit-text-fill-color: var(--apex-ink) !important;
+}
+.stApp .stTextArea textarea::placeholder, .stApp .stTextInput input::placeholder {
+    color: var(--apex-ink2) !important; -webkit-text-fill-color: var(--apex-ink2) !important;
+}
+.stApp [data-baseweb="select"] > div, .stApp [data-baseweb="select"] > div > div { background: var(--apex-surface) !important; background-color: var(--apex-surface) !important; }
+.stApp [data-baseweb="select"] div, .stApp [data-baseweb="select"] input { color: var(--apex-ink) !important; -webkit-text-fill-color: var(--apex-ink) !important; }
+[data-baseweb="popover"], [data-baseweb="popover"] > div, [data-baseweb="popover"] ul, [data-baseweb="popover"] li {
+    background: var(--apex-surface) !important; background-color: var(--apex-surface) !important;
+}
+[data-baseweb="popover"] li, [data-baseweb="popover"] li * { color: var(--apex-ink) !important; }
+[data-baseweb="popover"] li:hover, [data-baseweb="popover"] li[aria-selected="true"] { background: var(--apex-accent-soft) !important; }
+
+/* long option names (German in brackets): wrap instead of clipping */
+[data-baseweb="popover"] li, [data-baseweb="popover"] li * { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; line-height: 1.4 !important; }
+[data-baseweb="popover"] li { height: auto !important; min-height: 40px; padding-top: 8px !important; padding-bottom: 8px !important; }
+.stApp [data-baseweb="select"] > div { height: auto !important; min-height: 42px; }
+.stApp [data-baseweb="select"] [title], .stApp [data-baseweb="select"] > div > div:first-child,
+.stApp [data-baseweb="select"] > div > div:first-child * {
+    white-space: normal !important; overflow: visible !important; text-overflow: clip !important; line-height: 1.35 !important;
+}
+
+/* expander header: Streamlit fills it from the LIGHT config theme — repaint from tokens */
+.stApp [data-testid="stExpander"] details, .stApp [data-testid="stExpander"] details > div,
+.stApp [data-testid="stExpander"] summary, .stApp [data-testid="stExpander"] summary:hover,
+.stApp [data-testid="stExpander"] details[open] > summary, .stApp [data-testid="stExpanderDetails"] {
+    background: var(--apex-surface) !important; background-color: var(--apex-surface) !important;
+}
+.stApp [data-testid="stExpander"] summary, .stApp [data-testid="stExpander"] summary * { color: var(--apex-ink) !important; }
+.stApp [data-testid="stExpander"] summary:hover p { color: var(--apex-accent) !important; }
+.stApp [data-testid="stExpander"] summary svg { fill: var(--apex-ink2) !important; color: var(--apex-ink2) !important; }
+
 /* section headings that sit above tables/lists get breathing room */
 .apex-section { gap: 12px; }
 .stApp .apex-h { padding-bottom: 2px; }

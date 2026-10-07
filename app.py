@@ -336,11 +336,15 @@ if run_button and resume_file is not None:
         log = [{"node": "ingest", "status": f"Documents read — {len(resume_text)} characters"}]
         trace_slot.markdown(render_trace(log, running="parse"), unsafe_allow_html=True)
 
-        for step in apex_graph.stream(initial_state):
+        for step in apex_graph.stream(initial_state, {"recursion_limit": 25}):
             node_name = list(step.keys())[0]
-            node_state = step[node_name]
+            node_state = step[node_name] or {}
             full_state.update(node_state)
 
+            if node_state.get("error"):
+                log.append({"node": node_name, "status": f"failed — {node_state['error']}"})
+                st.session_state.agent_log = list(log)
+                break
             log.append({"node": node_name, "status": strip_status(node_state.get("status", f"{node_name} complete"))})
             # Persisted, so st.rerun() below does not destroy the run history.
             st.session_state.agent_log = list(log)
@@ -350,9 +354,6 @@ if run_button and resume_file is not None:
                 unsafe_allow_html=True,
             )
 
-        if full_state.get("error"):
-            log.append({"node": "warning", "status": str(full_state["error"])})
-            st.session_state.agent_log = list(log)
 
         st.session_state.pipeline_result = full_state
         st.session_state.pipeline_ran = True
