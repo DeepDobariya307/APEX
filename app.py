@@ -28,7 +28,7 @@ st.set_page_config(
     page_title="APEX — AI Career Agent",
     page_icon="◆",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded",  # phones: styles.py keeps it open and stacks it on top
 )
 
 
@@ -290,7 +290,7 @@ if not st.session_state.pipeline_ran and not run_button:
     md(
         '<div class="apex-intro">'
         '<div><div class="apex-title">Get your résumé past the filter and into the room.</div>'
-        '<div class="apex-lede">Add your résumé and the job description on the left, then run the pipeline. '
+        '<div class="apex-lede">Add your résumé and the job description, then run the pipeline. '
         "You get an ATS score, a rewritten résumé, a cover letter and interview prep for this one role.</div></div>"
         f'<div class="apex-steps">{step_html}</div>'
         '<div class="apex-route"><b>How the loop works.</b> '

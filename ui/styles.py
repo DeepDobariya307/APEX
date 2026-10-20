@@ -509,11 +509,19 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
         display: flex !important; flex-direction: column !important;
         overflow-y: auto !important; overflow-x: hidden !important; height: 100dvh !important;
     }
-    [data-testid="stSidebar"] {
+    /* Streamlit auto-collapses the sidebar on phones by sliding it off-screen
+       (negative margin + transform, aria-expanded=false). Undo every part. */
+    [data-testid="stSidebar"], [data-testid="stSidebar"][aria-expanded="false"] {
+        display: block !important; visibility: visible !important; opacity: 1 !important; order: -1 !important;
+        margin: 0 !important; left: 0 !important; top: 0 !important;
         position: relative !important; inset: auto !important; z-index: auto !important;
         width: 100% !important; min-width: 100% !important; max-width: 100% !important;
         height: auto !important; flex: none !important; transform: none !important; box-shadow: none !important;
         border-right: 0 !important; border-bottom: 3px double var(--apex-line-strong) !important;
+    }
+    [data-testid="stSidebar"] > div, [data-testid="stSidebarContent"], [data-testid="stSidebarUserContent"] {
+        display: block !important; visibility: visible !important; opacity: 1 !important;
+        margin-left: 0 !important; left: 0 !important; transform: none !important;
     }
     [data-testid="stSidebar"] > div:first-child, [data-testid="stSidebarContent"] {
         position: relative !important; width: 100% !important; min-width: 0 !important; max-width: none !important;
@@ -521,7 +529,7 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
     }
     [data-testid="stSidebar"] [data-testid="stSidebarResizeHandle"], [data-testid="stSidebar"] > div:last-child:empty { display: none !important; }
     .stApp [data-testid="stSidebarUserContent"] { padding: 20px 20px 24px !important; max-width: 560px; }
-    [data-testid="stMain"], .stApp section.main { width: 100% !important; flex: none !important; overflow: visible !important; }
+    [data-testid="stMain"], .stApp section.main { order: 0 !important; margin-left: 0 !important; width: 100% !important; flex: none !important; overflow: visible !important; }
     .stApp .block-container, .stApp [data-testid="stMainBlockContainer"] { padding: 20px 20px 48px !important; }
     .stApp .st-key-theme_toggle { top: 14px; right: 14px; }
     .apex-brand { padding-right: 76px; }
