@@ -256,23 +256,19 @@ with st.sidebar:
 
 
 # ── Top row: nav line + the theme switch ──────────────────────────────────────
-nav_col, theme_col = st.columns([7, 1])
-with nav_col:
-    md(
-        f'<div class="apex-navline">LangGraph pipeline · six agents · pass mark {config.ATS_PASS_THRESHOLD}</div>'
-    )
-with theme_col:
-    going_dark = st.session_state.theme == "light"
-    # A track with a sliding knob. The marker span gives the stylesheet a hook
-    # that does not depend on Streamlit's per-key container classes; the label
-    # is the glyph for the CURRENT theme and rides inside the knob.
-    md('<span id="apex-theme-marker"></span>')
-    if st.button(
-        "\u2600" if going_dark else "\u263e",
-        key="theme_toggle",
-    ):
-        st.session_state.theme = "dark" if going_dark else "light"
-        st.rerun()
+# The switch is pinned to the top-right corner by the stylesheet
+# (.st-key-theme_toggle is position: fixed), so it no longer needs a column —
+# columns stacked on phones and dropped it under the nav line.
+going_dark = st.session_state.theme == "light"
+if st.button(
+    "\u2600" if going_dark else "\u263e",
+    key="theme_toggle",
+):
+    st.session_state.theme = "dark" if going_dark else "light"
+    st.rerun()
+md(
+    f'<div class="apex-navline">LangGraph pipeline · six agents · pass mark {config.ATS_PASS_THRESHOLD}</div>'
+)
 
 
 # ── Empty state ───────────────────────────────────────────────────────────────

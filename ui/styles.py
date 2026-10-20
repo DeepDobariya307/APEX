@@ -491,6 +491,62 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
 /* section headings that sit above tables/lists get breathing room */
 .apex-section { gap: 12px; }
 .stApp .apex-h { padding-bottom: 2px; }
+
+/* ══ theme switch pinned to the top-right corner ══════════════════════════ */
+.stApp .st-key-theme_toggle {
+    position: fixed !important; top: 16px; right: 20px; z-index: 1000002;
+    width: auto !important; margin: 0 !important;
+}
+.stApp .st-key-theme_toggle button[kind] { margin: 0 !important; box-shadow: 2px 2px 0 var(--apex-line) !important; }
+.stApp .apex-navline { padding-right: 84px; }
+
+/* ══ phones & small tablets: the sidebar becomes the top of the page ══════
+   Streamlit draws the sidebar as a full-screen overlay below ~1000px, and the
+   rules above hide its close control — on a phone it covered everything.
+   Here it drops into the normal flow: inputs first, results below. */
+@media (max-width: 999px) {
+    [data-testid="stAppViewContainer"] {
+        display: flex !important; flex-direction: column !important;
+        overflow-y: auto !important; overflow-x: hidden !important; height: 100dvh !important;
+    }
+    [data-testid="stSidebar"] {
+        position: relative !important; inset: auto !important; z-index: auto !important;
+        width: 100% !important; min-width: 100% !important; max-width: 100% !important;
+        height: auto !important; flex: none !important; transform: none !important; box-shadow: none !important;
+        border-right: 0 !important; border-bottom: 3px double var(--apex-line-strong) !important;
+    }
+    [data-testid="stSidebar"] > div:first-child, [data-testid="stSidebarContent"] {
+        position: relative !important; width: 100% !important; min-width: 0 !important; max-width: none !important;
+        height: auto !important; overflow: visible !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stSidebarResizeHandle"], [data-testid="stSidebar"] > div:last-child:empty { display: none !important; }
+    .stApp [data-testid="stSidebarUserContent"] { padding: 20px 20px 24px !important; max-width: 560px; }
+    [data-testid="stMain"], .stApp section.main { width: 100% !important; flex: none !important; overflow: visible !important; }
+    .stApp .block-container, .stApp [data-testid="stMainBlockContainer"] { padding: 20px 20px 48px !important; }
+    .stApp .st-key-theme_toggle { top: 14px; right: 14px; }
+    .apex-brand { padding-right: 76px; }
+
+    .apex-intro { gap: 22px; padding-top: 12px; }
+    .apex-title { font-size: 30px; }
+    .apex-lede { font-size: 16px; }
+    .apex-h-lg { font-size: 26px; }
+
+    /* tabs scroll sideways instead of wrapping into a jumble */
+    .stApp [data-baseweb="tab-list"] { gap: 20px !important; overflow-x: auto !important; flex-wrap: nowrap !important; scrollbar-width: none; }
+    .stApp [data-baseweb="tab-list"]::-webkit-scrollbar { display: none; }
+    .stApp [data-baseweb="tab"] { flex: none !important; }
+
+    /* comfortable thumb targets */
+    .stApp .stButton > button, .stApp [data-testid^="stBaseButton"] { min-height: 44px !important; }
+    .stApp .st-key-jd_mode_paste button, .stApp .st-key-jd_mode_pdf button { min-height: 44px !important; }
+    .stApp .st-key-theme_toggle button[kind] { min-height: 32px !important; }
+}
+@media (max-width: 560px) {
+    .apex-steps { grid-template-columns: 1fr; gap: 18px; }
+    .apex-title { font-size: 27px; }
+    .apex-plate { padding: 22px 18px; }
+    .apex-route { padding: 12px 14px; }
+}
 </style>
 """
 
