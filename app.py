@@ -28,7 +28,6 @@ st.set_page_config(
     page_title="APEX — AI Career Agent",
     page_icon="◆",
     layout="wide",
-    initial_sidebar_state="expanded",  # phones: styles.py keeps it open and stacks it on top
 )
 
 
@@ -158,8 +157,13 @@ def strip_status(status: str) -> str:
     return status.replace("✅", "").strip()
 
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
-with st.sidebar:
+# ── Layout: input panel + main column ──────────────────────────────────────
+# A real column, not st.sidebar: Streamlit hides its sidebar off-screen on
+# phones. Columns stack on narrow screens, so the inputs land on top.
+panel_col, main_col = st.columns([1, 2.7], gap="large")
+
+# ── Input panel ──────────────────────────────────────────────────────────────
+with panel_col, st.container(key="apex_panel"):
     md(
         '<div class="apex-brand">APEX</div>'
         '<div class="apex-brand-sub">Tailors your résumé to one job posting</div>'
@@ -255,465 +259,466 @@ with st.sidebar:
             st.rerun()
 
 
-# ── Top row: nav line + the theme switch ──────────────────────────────────────
-# The switch is pinned to the top-right corner by the stylesheet
-# (.st-key-theme_toggle is position: fixed), so it no longer needs a column —
-# columns stacked on phones and dropped it under the nav line.
-going_dark = st.session_state.theme == "light"
-if st.button(
-    "\u2600" if going_dark else "\u263e",
-    key="theme_toggle",
-):
-    st.session_state.theme = "dark" if going_dark else "light"
-    st.rerun()
-md(
-    f'<div class="apex-navline">LangGraph pipeline · six agents · pass mark {config.ATS_PASS_THRESHOLD}</div>'
-)
-
-
-# ── Empty state ───────────────────────────────────────────────────────────────
-if not st.session_state.pipeline_ran and not run_button:
-    t = config.ATS_PASS_THRESHOLD
-    steps = [
-        ("Step 1", "Read", "Your résumé and the posting are extracted to plain text.", ""),
-        ("Step 2", "Score", "Skills and experience are parsed and scored like an ATS would.", ""),
-        ("Step 3", "Improve", f"Below {t}, it critiques and rewrites, then scores again.", " loop"),
-        ("Step 4", "Deliver", "Cover letter, interview prep and a learning plan.", ""),
-    ]
-    step_html = "".join(
-        f'<div class="apex-step{cls}"><div class="apex-step-num">{n}</div>'
-        f'<div class="apex-step-title">{esc(ti)}</div>'
-        f'<div class="apex-step-body">{esc(d)}</div></div>'
-        for n, ti, d, cls in steps
-    )
-
-    md(
-        '<div class="apex-intro">'
-        '<div><div class="apex-title">Get your résumé past the filter and into the room.</div>'
-        '<div class="apex-lede">Add your résumé and the job description, then run the pipeline. '
-        "You get an ATS score, a rewritten résumé, a cover letter and interview prep for this one role.</div></div>"
-        f'<div class="apex-steps">{step_html}</div>'
-        '<div class="apex-route"><b>How the loop works.</b> '
-        f"A score of {t} or more goes straight to the cover letter. Below {t}, the résumé is critiqued, "
-        f"rewritten and scored again, at most {config.MAX_REWRITE_ITERATIONS} times.</div>"
-        "</div>"
-    )
-    st.stop()
-
-
-# ── Pipeline execution ────────────────────────────────────────────────────────
-if run_button and resume_file is not None:
-    st.session_state.pipeline_ran = False
-    st.session_state.pipeline_result = None
-    st.session_state.agent_log = []
-
-    try:
-        resume_text = processor.process_resume(resume_file)
-        jd_source_input = jd_text_input if jd_source == "Paste text" else jd_file
-        if not jd_source_input:
-            st.error("Please provide a job description.")
-            st.stop()
-        jd_text = processor.process_job_description(jd_source_input)
-
-        initial_state: APEXState = {
-            "resume_text": resume_text,
-            "jd_text": jd_text,
-            "internship_type": internship_type,
-            "has_work_permit": has_work_permit,
-            "rewrite_iteration": 0,
-            "completed_nodes": [],
-        }
-
-        full_state = {}
-        full_state.update(initial_state)
-
-        # One surface, repainted — not one alert box per node.
-        trace_slot = st.empty()
-        log = [{"node": "ingest", "status": f"Documents read — {len(resume_text)} characters"}]
-        trace_slot.markdown(render_trace(log, running="parse"), unsafe_allow_html=True)
-
-        for step in apex_graph.stream(initial_state, {"recursion_limit": 25}):
-            node_name = list(step.keys())[0]
-            node_state = step[node_name] or {}
-            full_state.update(node_state)
-
-            if node_state.get("error"):
-                log.append({"node": node_name, "status": f"failed — {node_state['error']}"})
-                st.session_state.agent_log = list(log)
-                break
-            log.append({"node": node_name, "status": strip_status(node_state.get("status", f"{node_name} complete"))})
-            # Persisted, so st.rerun() below does not destroy the run history.
-            st.session_state.agent_log = list(log)
-
-            trace_slot.markdown(
-                render_trace(log, running=_next_expected(node_name, full_state)),
-                unsafe_allow_html=True,
-            )
-
-
-        st.session_state.pipeline_result = full_state
-        st.session_state.pipeline_ran = True
+with main_col:
+    # ── Top row: nav line + the theme switch ──────────────────────────────────────
+    # The switch is pinned to the top-right corner by the stylesheet
+    # (.st-key-theme_toggle is position: fixed), so it no longer needs a column —
+    # columns stacked on phones and dropped it under the nav line.
+    going_dark = st.session_state.theme == "light"
+    if st.button(
+        "\u2600" if going_dark else "\u263e",
+        key="theme_toggle",
+    ):
+        st.session_state.theme = "dark" if going_dark else "light"
         st.rerun()
-
-    except Exception as e:
-        import traceback
-        st.error(f"Error: {e}")
-        st.code(traceback.format_exc())
-
-
-# ── Results ───────────────────────────────────────────────────────────────────
-if st.session_state.pipeline_ran and st.session_state.pipeline_result:
-    state = st.session_state.pipeline_result
-
-    ats = state.get("ats_result")
-    rewrite = state.get("rewrite_result")
-    critique = state.get("critique_result")
-    cover_letter = state.get("cover_letter")
-    learning_roadmap = state.get("learning_roadmap")
-    parsed_jd = state.get("parsed_jd")
-    parsed_resume = state.get("parsed_resume")
-    initial_score = state.get("initial_ats_score", ats.ats_score if ats else 0)
-    iterations = state.get("rewrite_iteration", 0)
-
-    role = getattr(parsed_jd, "job_title", "") or "This role"
-    company = getattr(parsed_jd, "company", "")
-    iter_label = "no rewrite" if iterations == 0 else ("one rewrite" if iterations == 1 else f"{iterations} rewrites")
-
     md(
-        '<div class="apex-row">'
-        f'<div class="apex-h-lg">{esc(role)}'
-        + (f' <em>at {esc(company)}</em>' if company else "")
-        + "</div>"
-        f'<div class="apex-kicker">{esc(datetime.now().strftime("%d %B %Y"))} · {iter_label}</div>'
-        "</div>"
+        f'<div class="apex-navline">LangGraph pipeline · six agents · pass mark {config.ATS_PASS_THRESHOLD}</div>'
     )
 
-    if st.session_state.agent_log:
-        with st.expander("Agent trace"):
-            md(render_trace(st.session_state.agent_log, finished=True))
 
-    tab_ats, tab_opt, tab_cover, tab_int, tab_learn = st.tabs(
-        ["ATS score", "Optimisation", "Cover letter", "Interview prep", "Learning roadmap"]
-    )
-
-    # ── ATS ───────────────────────────────────────────────────────────────────
-    with tab_ats:
-        if ats:
-            delta = ats.ats_score - initial_score
-            foot = f"up {delta} after the rewrite" if delta > 0 else f"of {100}"
-            cov = int(round(ats.keyword_coverage_pct))
-            matched = len(ats.matched_skills)
-            missing = len(ats.missing_required_skills)
-            md(
-                '<div class="apex-score">'
-                + gauge(ats.ats_score, "ATS score", foot)
-                + '<div class="apex-metrics">'
-                '<div><div class="apex-metric-label">Keyword coverage</div>'
-                f'<div class="apex-figure">{cov}<sup>%</sup></div>'
-                f'<div class="apex-bar"><div style="width:{min(cov,100)}%"></div></div>'
-                '<div class="apex-metric-foot">of the posting\'s keywords</div></div>'
-                '<div><div class="apex-metric-label">Matched skills</div>'
-                f'<div class="apex-figure">{matched}</div>'
-                f'<div class="apex-bar"><div style="width:{min(matched * 4, 100)}%"></div></div>'
-                '<div class="apex-metric-foot">found in the résumé</div></div>'
-                '<div><div class="apex-metric-label">Missing required</div>'
-                f'<div class="apex-figure apex-figure-quiet">{missing}</div>'
-                f'<div class="apex-bar apex-bar-quiet"><div style="width:{min(missing * 12, 100)}%"></div></div>'
-                '<div class="apex-metric-foot">skills still to close</div></div>'
-                "</div></div>"
-                '<div class="apex-rule"></div>'
-            )
-
-            if ats.strengths or ats.weaknesses:
-                md(
-                    '<div class="apex-two">'
-                    '<div><div class="apex-h" style="padding-bottom:13.8px">Strengths</div>'
-                    + "".join(f'<div class="apex-finding">{esc(s)}</div>' for s in ats.strengths)
-                    + "</div>"
-                    '<div><div class="apex-h" style="padding-bottom:13.8px">Weaknesses</div>'
-                    + "".join(f'<div class="apex-finding apex-finding-quiet">{esc(w)}</div>' for w in ats.weaknesses)
-                    + "</div></div><div class=\"apex-rule\"></div>"
-                )
-
-            blocks = []
-            if ats.jd_matched_skills:
-                blocks.append(
-                    '<div><div class="apex-row" style="padding-bottom:13.8px">'
-                    '<div class="apex-h">Relevant to this role</div>'
-                    f'<div class="apex-kicker">{len(ats.jd_matched_skills)} matched</div></div>'
-                    + tags(ats.jd_matched_skills) + "</div>"
-                )
-            if ats.missing_required_skills:
-                blocks.append(
-                    '<div><div class="apex-row" style="padding-bottom:13.8px">'
-                    '<div class="apex-h">Required, not found</div>'
-                    '<div class="apex-kicker">close these first</div></div>'
-                    + tags(ats.missing_required_skills, "apex-tag-absent") + "</div>"
-                )
-            if ats.missing_preferred_skills:
-                blocks.append(
-                    '<div><div class="apex-h" style="padding-bottom:13.8px">Preferred, not found</div>'
-                    + tags(ats.missing_preferred_skills, "apex-tag-neutral") + "</div>"
-                )
-            if parsed_resume and parsed_resume.skills_categorized:
-                rows = "".join(
-                    f'<dt>{esc(cat)}</dt><dd>{esc(", ".join(str(s) for s in sk))}</dd>'
-                    for cat, sk in parsed_resume.skills_categorized.items() if sk
-                )
-                if rows:
-                    blocks.append(
-                        '<div class="apex-section"><div class="apex-h">Your résumé skills</div>'
-                        f'<dl class="apex-skillset">{rows}</dl></div>'
-                    )
-            if ats.suggested_renames:
-                rows = "".join(
-                    f"<tr><td>{esc(r.resume_term)}</td>"
-                    f'<td class="gold">{esc(r.suggested_term)}</td>'
-                    f'<td class="quiet">{esc(r.jd_term)}</td></tr>'
-                    for r in ats.suggested_renames
-                )
-                blocks.append(
-                    '<div><div class="apex-h">Suggested renames</div>'
-                    '<table class="apex-table"><thead><tr><th>Your term</th><th>Rename to</th>'
-                    f"<th>Matches</th></tr></thead><tbody>{rows}</tbody></table></div>"
-                )
-            if blocks:
-                md('<div style="display:flex;flex-direction:column;gap:27.6px">' + "".join(blocks) + "</div>")
-        else:
-            md('<div class="apex-note">ATS result not available.</div>')
-
-    # ── Optimisation ──────────────────────────────────────────────────────────
-    with tab_opt:
-        bits = [b for b in [
-            iter_label if iterations else "",
-            f"{initial_score} → {ats.ats_score}" if ats else "",
-            f"{len(rewrite.keywords_injected)} keywords" if rewrite and rewrite.keywords_injected else "",
-        ] if b]
-        md(
-            '<div class="apex-row">'
-            '<div class="apex-h-lg">Critique &amp; rewrite</div>'
-            f'<div class="apex-kicker">{esc(" · ".join(bits))}</div></div>'
+    # ── Empty state ───────────────────────────────────────────────────────────────
+    if not st.session_state.pipeline_ran and not run_button:
+        t = config.ATS_PASS_THRESHOLD
+        steps = [
+            ("Step 1", "Read", "Your résumé and the posting are extracted to plain text.", ""),
+            ("Step 2", "Score", "Skills and experience are parsed and scored like an ATS would.", ""),
+            ("Step 3", "Improve", f"Below {t}, it critiques and rewrites, then scores again.", " loop"),
+            ("Step 4", "Deliver", "Cover letter, interview prep and a learning plan.", ""),
+        ]
+        step_html = "".join(
+            f'<div class="apex-step{cls}"><div class="apex-step-num">{n}</div>'
+            f'<div class="apex-step-title">{esc(ti)}</div>'
+            f'<div class="apex-step-body">{esc(d)}</div></div>'
+            for n, ti, d, cls in steps
         )
 
-        if critique:
-            if critique.overall_assessment:
-                md(f'<div class="apex-quote">{esc(critique.overall_assessment)}</div>')
-            if critique.priority_fixes:
-                md(
-                    '<div class="apex-h" style="padding-bottom:13.8px">Priority fixes</div>'
-                    '<div class="apex-numlist">'
-                    + "".join(
-                        f'<div class="apex-numitem"><span>{i}</span><span>{esc(fx)}</span></div>'
-                        for i, fx in enumerate(critique.priority_fixes, 1)
-                    )
-                    + "</div>"
-                )
-        else:
-            md('<div class="apex-quote">The score already cleared the threshold, so no rewrite was needed.</div>')
+        md(
+            '<div class="apex-intro">'
+            '<div><div class="apex-title">Get your résumé past the filter and into the room.</div>'
+            '<div class="apex-lede">Add your résumé and the job description, then run the pipeline. '
+            "You get an ATS score, a rewritten résumé, a cover letter and interview prep for this one role.</div></div>"
+            f'<div class="apex-steps">{step_html}</div>'
+            '<div class="apex-route"><b>How the loop works.</b> '
+            f"A score of {t} or more goes straight to the cover letter. Below {t}, the résumé is critiqued, "
+            f"rewritten and scored again, at most {config.MAX_REWRITE_ITERATIONS} times.</div>"
+            "</div>"
+        )
+        st.stop()
 
-        if rewrite:
-            pairs = []
-            for rb in rewrite.rewritten_bullets:
-                if rb.rewritten:
-                    right = (
-                        '<div class="apex-diff-label after">After</div>'
-                        f'<div class="apex-after">{esc(rb.rewritten)}</div>'
-                    )
-                else:
-                    right = (
-                        '<div class="apex-diff-label">De-emphasise</div>'
-                        '<div class="apex-before">Limited relevance to this role. Drop it from this '
-                        "application, but keep it on the master résumé.</div>"
-                    )
-                pairs.append(
-                    '<div class="apex-diff-pair">'
-                    '<div><div class="apex-diff-label">Before</div>'
-                    f'<div class="apex-before">{esc(rb.original)}</div></div>'
-                    f"<div>{right}</div></div>"
+
+    # ── Pipeline execution ────────────────────────────────────────────────────────
+    if run_button and resume_file is not None:
+        st.session_state.pipeline_ran = False
+        st.session_state.pipeline_result = None
+        st.session_state.agent_log = []
+
+        try:
+            resume_text = processor.process_resume(resume_file)
+            jd_source_input = jd_text_input if jd_source == "Paste text" else jd_file
+            if not jd_source_input:
+                st.error("Please provide a job description.")
+                st.stop()
+            jd_text = processor.process_job_description(jd_source_input)
+
+            initial_state: APEXState = {
+                "resume_text": resume_text,
+                "jd_text": jd_text,
+                "internship_type": internship_type,
+                "has_work_permit": has_work_permit,
+                "rewrite_iteration": 0,
+                "completed_nodes": [],
+            }
+
+            full_state = {}
+            full_state.update(initial_state)
+
+            # One surface, repainted — not one alert box per node.
+            trace_slot = st.empty()
+            log = [{"node": "ingest", "status": f"Documents read — {len(resume_text)} characters"}]
+            trace_slot.markdown(render_trace(log, running="parse"), unsafe_allow_html=True)
+
+            for step in apex_graph.stream(initial_state, {"recursion_limit": 25}):
+                node_name = list(step.keys())[0]
+                node_state = step[node_name] or {}
+                full_state.update(node_state)
+
+                if node_state.get("error"):
+                    log.append({"node": node_name, "status": f"failed — {node_state['error']}"})
+                    st.session_state.agent_log = list(log)
+                    break
+                log.append({"node": node_name, "status": strip_status(node_state.get("status", f"{node_name} complete"))})
+                # Persisted, so st.rerun() below does not destroy the run history.
+                st.session_state.agent_log = list(log)
+
+                trace_slot.markdown(
+                    render_trace(log, running=_next_expected(node_name, full_state)),
+                    unsafe_allow_html=True,
                 )
-            if pairs:
+
+
+            st.session_state.pipeline_result = full_state
+            st.session_state.pipeline_ran = True
+            st.rerun()
+
+        except Exception as e:
+            import traceback
+            st.error(f"Error: {e}")
+            st.code(traceback.format_exc())
+
+
+    # ── Results ───────────────────────────────────────────────────────────────────
+    if st.session_state.pipeline_ran and st.session_state.pipeline_result:
+        state = st.session_state.pipeline_result
+
+        ats = state.get("ats_result")
+        rewrite = state.get("rewrite_result")
+        critique = state.get("critique_result")
+        cover_letter = state.get("cover_letter")
+        learning_roadmap = state.get("learning_roadmap")
+        parsed_jd = state.get("parsed_jd")
+        parsed_resume = state.get("parsed_resume")
+        initial_score = state.get("initial_ats_score", ats.ats_score if ats else 0)
+        iterations = state.get("rewrite_iteration", 0)
+
+        role = getattr(parsed_jd, "job_title", "") or "This role"
+        company = getattr(parsed_jd, "company", "")
+        iter_label = "no rewrite" if iterations == 0 else ("one rewrite" if iterations == 1 else f"{iterations} rewrites")
+
+        md(
+            '<div class="apex-row">'
+            f'<div class="apex-h-lg">{esc(role)}'
+            + (f' <em>at {esc(company)}</em>' if company else "")
+            + "</div>"
+            f'<div class="apex-kicker">{esc(datetime.now().strftime("%d %B %Y"))} · {iter_label}</div>'
+            "</div>"
+        )
+
+        if st.session_state.agent_log:
+            with st.expander("Agent trace"):
+                md(render_trace(st.session_state.agent_log, finished=True))
+
+        tab_ats, tab_opt, tab_cover, tab_int, tab_learn = st.tabs(
+            ["ATS score", "Optimisation", "Cover letter", "Interview prep", "Learning roadmap"]
+        )
+
+        # ── ATS ───────────────────────────────────────────────────────────────────
+        with tab_ats:
+            if ats:
+                delta = ats.ats_score - initial_score
+                foot = f"up {delta} after the rewrite" if delta > 0 else f"of {100}"
+                cov = int(round(ats.keyword_coverage_pct))
+                matched = len(ats.matched_skills)
+                missing = len(ats.missing_required_skills)
                 md(
+                    '<div class="apex-score">'
+                    + gauge(ats.ats_score, "ATS score", foot)
+                    + '<div class="apex-metrics">'
+                    '<div><div class="apex-metric-label">Keyword coverage</div>'
+                    f'<div class="apex-figure">{cov}<sup>%</sup></div>'
+                    f'<div class="apex-bar"><div style="width:{min(cov,100)}%"></div></div>'
+                    '<div class="apex-metric-foot">of the posting\'s keywords</div></div>'
+                    '<div><div class="apex-metric-label">Matched skills</div>'
+                    f'<div class="apex-figure">{matched}</div>'
+                    f'<div class="apex-bar"><div style="width:{min(matched * 4, 100)}%"></div></div>'
+                    '<div class="apex-metric-foot">found in the résumé</div></div>'
+                    '<div><div class="apex-metric-label">Missing required</div>'
+                    f'<div class="apex-figure apex-figure-quiet">{missing}</div>'
+                    f'<div class="apex-bar apex-bar-quiet"><div style="width:{min(missing * 12, 100)}%"></div></div>'
+                    '<div class="apex-metric-foot">skills still to close</div></div>'
+                    "</div></div>"
                     '<div class="apex-rule"></div>'
-                    '<div class="apex-h" style="padding-bottom:9.2px">Bullet by bullet</div>'
-                    + "".join(pairs)
-                )
-            if rewrite.rewritten_summary:
-                md(
-                    '<div class="apex-h" style="padding:27.6px 0 9.2px">Rewritten summary</div>'
-                    f'<div class="apex-prose">{esc(rewrite.rewritten_summary)}</div>'
-                )
-            if rewrite.keywords_injected:
-                md(
-                    '<div class="apex-h" style="padding:27.6px 0 13.8px">Keywords injected</div>'
-                    + tags(rewrite.keywords_injected)
                 )
 
-    # ── Cover letter ──────────────────────────────────────────────────────────
-    with tab_cover:
-        if cover_letter:
-            contact = getattr(parsed_resume, "contact", None)
-            name = getattr(contact, "name", "") if contact else ""
-            location = getattr(contact, "location", "") if contact else ""
-            email = getattr(contact, "email", "") if contact else ""
-            phone = getattr(contact, "phone", "") if contact else ""
-            contact_line = " · ".join([x for x in [email, phone] if x])
+                if ats.strengths or ats.weaknesses:
+                    md(
+                        '<div class="apex-two">'
+                        '<div><div class="apex-h" style="padding-bottom:13.8px">Strengths</div>'
+                        + "".join(f'<div class="apex-finding">{esc(s)}</div>' for s in ats.strengths)
+                        + "</div>"
+                        '<div><div class="apex-h" style="padding-bottom:13.8px">Weaknesses</div>'
+                        + "".join(f'<div class="apex-finding apex-finding-quiet">{esc(w)}</div>' for w in ats.weaknesses)
+                        + "</div></div><div class=\"apex-rule\"></div>"
+                    )
 
-            md(
-                '<div class="apex-row" style="padding-bottom:27.6px">'
-                '<div class="apex-h-lg">Cover letter</div>'
-                f'<div class="apex-kicker">{cover_letter.word_count} words'
-                + (f" · {len(cover_letter.keywords_used)} keywords" if cover_letter.keywords_used else "")
-                + "</div></div>"
-            )
-
-            # One HTML block: Streamlit renders separate calls as siblings, so the
-            # letter body cannot be a child of the plate any other way.
-            paragraphs = "".join(
-                f"<p>{esc(p.strip())}</p>" for p in cover_letter.body.split("\n\n") if p.strip()
-            )
-            from_lines = "<br>".join(esc(x) for x in [name, location, contact_line] if x)
-            md(
-                '<div class="apex-plate">'
-                f'<div class="muted" style="text-align:right;font-size:13.5px;line-height:1.8">{from_lines}</div>'
-                f'<div class="muted" style="font-size:13.5px;padding:27.6px 0 18.4px">{esc(datetime.now().strftime("%d %B %Y"))}</div>'
-                f'<div class="apex-plate-subject">{esc(cover_letter.subject_line)}</div>'
-                f"{paragraphs}"
-                f'<p style="font-style:italic">{esc(name)}</p>'
-                "</div>"
-            )
-
-            if cover_letter.keywords_used:
-                md(
-                    '<div class="apex-rule"></div>'
-                    '<div class="apex-h" style="padding-bottom:13.8px">Keywords used</div>'
-                    + tags(cover_letter.keywords_used)
-                )
-            md('<div class="apex-rule"></div>')
-            st.download_button(
-                "Download .txt",
-                data=f"{cover_letter.body}\n\n{name}",
-                file_name="cover_letter.txt",
-                mime="text/plain",
-            )
-        else:
-            md('<div class="apex-note">Cover letter not available.</div>')
-
-    # ── Interview prep ────────────────────────────────────────────────────────
-    with tab_int:
-        if st.session_state.interview_kit is None:
-            md(
-                '<div class="apex-h-lg">Interview prep</div>'
-                '<div class="apex-note" style="padding:13.8px 0 27.6px">A tailored kit: HR, '
-                "technical, behavioural and project questions drawn from this résumé and this "
-                "role. It takes a minute or two and spends additional API credits.</div>"
-            )
-            if st.button("Prepare for interview", type="primary"):
-                with st.spinner("Generating the interview kit…"):
-                    try:
-                        st.session_state.interview_kit = interview_agent.generate_kit(
-                            parsed_resume, parsed_jd
+                blocks = []
+                if ats.jd_matched_skills:
+                    blocks.append(
+                        '<div><div class="apex-row" style="padding-bottom:13.8px">'
+                        '<div class="apex-h">Relevant to this role</div>'
+                        f'<div class="apex-kicker">{len(ats.jd_matched_skills)} matched</div></div>'
+                        + tags(ats.jd_matched_skills) + "</div>"
+                    )
+                if ats.missing_required_skills:
+                    blocks.append(
+                        '<div><div class="apex-row" style="padding-bottom:13.8px">'
+                        '<div class="apex-h">Required, not found</div>'
+                        '<div class="apex-kicker">close these first</div></div>'
+                        + tags(ats.missing_required_skills, "apex-tag-absent") + "</div>"
+                    )
+                if ats.missing_preferred_skills:
+                    blocks.append(
+                        '<div><div class="apex-h" style="padding-bottom:13.8px">Preferred, not found</div>'
+                        + tags(ats.missing_preferred_skills, "apex-tag-neutral") + "</div>"
+                    )
+                if parsed_resume and parsed_resume.skills_categorized:
+                    rows = "".join(
+                        f'<dt>{esc(cat)}</dt><dd>{esc(", ".join(str(s) for s in sk))}</dd>'
+                        for cat, sk in parsed_resume.skills_categorized.items() if sk
+                    )
+                    if rows:
+                        blocks.append(
+                            '<div class="apex-section"><div class="apex-h">Your résumé skills</div>'
+                            f'<dl class="apex-skillset">{rows}</dl></div>'
                         )
-                        st.rerun()
-                    except Exception as e:
-                        import traceback
-                        st.error(f"Interview kit generation failed: {e}")
-                        st.code(traceback.format_exc())
-        else:
-            kit = st.session_state.interview_kit
-            for title, questions in [
-                ("HR", kit.hr_questions),
-                ("Technical", kit.technical_questions),
-                ("Behavioural", kit.behavioral_questions),
-                ("Project discussion", kit.project_questions),
-            ]:
-                if not questions:
-                    continue
-                md(
-                    '<div class="apex-row" style="padding:9.2px 0">'
-                    f'<div class="apex-h">{esc(title)}</div>'
-                    f'<div class="apex-kicker">{len(questions)} questions</div></div>'
-                )
-                for i, q in enumerate(questions, 1):
-                    with st.expander(f"{i}. {q.question}"):
-                        md(
-                            '<div style="border-left:2px solid var(--apex-accent);padding-left:13.8px">'
-                            '<div class="apex-metric-label" style="color:var(--apex-accent-text);'
-                            'padding-bottom:9.2px">Suggested answer</div>'
-                            f'<div class="apex-prose">{esc(q.suggested_answer)}</div>'
-                            + (
-                                '<div class="apex-metric-label" style="padding:18.4px 0 9.2px">Tip</div>'
-                                f'<div class="apex-prose">{esc(q.tips)}</div>' if q.tips else ""
-                            )
-                            + "</div>"
+                if ats.suggested_renames:
+                    rows = "".join(
+                        f"<tr><td>{esc(r.resume_term)}</td>"
+                        f'<td class="gold">{esc(r.suggested_term)}</td>'
+                        f'<td class="quiet">{esc(r.jd_term)}</td></tr>'
+                        for r in ats.suggested_renames
+                    )
+                    blocks.append(
+                        '<div><div class="apex-h">Suggested renames</div>'
+                        '<table class="apex-table"><thead><tr><th>Your term</th><th>Rename to</th>'
+                        f"<th>Matches</th></tr></thead><tbody>{rows}</tbody></table></div>"
+                    )
+                if blocks:
+                    md('<div style="display:flex;flex-direction:column;gap:27.6px">' + "".join(blocks) + "</div>")
+            else:
+                md('<div class="apex-note">ATS result not available.</div>')
+
+        # ── Optimisation ──────────────────────────────────────────────────────────
+        with tab_opt:
+            bits = [b for b in [
+                iter_label if iterations else "",
+                f"{initial_score} → {ats.ats_score}" if ats else "",
+                f"{len(rewrite.keywords_injected)} keywords" if rewrite and rewrite.keywords_injected else "",
+            ] if b]
+            md(
+                '<div class="apex-row">'
+                '<div class="apex-h-lg">Critique &amp; rewrite</div>'
+                f'<div class="apex-kicker">{esc(" · ".join(bits))}</div></div>'
+            )
+
+            if critique:
+                if critique.overall_assessment:
+                    md(f'<div class="apex-quote">{esc(critique.overall_assessment)}</div>')
+                if critique.priority_fixes:
+                    md(
+                        '<div class="apex-h" style="padding-bottom:13.8px">Priority fixes</div>'
+                        '<div class="apex-numlist">'
+                        + "".join(
+                            f'<div class="apex-numitem"><span>{i}</span><span>{esc(fx)}</span></div>'
+                            for i, fx in enumerate(critique.priority_fixes, 1)
                         )
+                        + "</div>"
+                    )
+            else:
+                md('<div class="apex-quote">The score already cleared the threshold, so no rewrite was needed.</div>')
+
+            if rewrite:
+                pairs = []
+                for rb in rewrite.rewritten_bullets:
+                    if rb.rewritten:
+                        right = (
+                            '<div class="apex-diff-label after">After</div>'
+                            f'<div class="apex-after">{esc(rb.rewritten)}</div>'
+                        )
+                    else:
+                        right = (
+                            '<div class="apex-diff-label">De-emphasise</div>'
+                            '<div class="apex-before">Limited relevance to this role. Drop it from this '
+                            "application, but keep it on the master résumé.</div>"
+                        )
+                    pairs.append(
+                        '<div class="apex-diff-pair">'
+                        '<div><div class="apex-diff-label">Before</div>'
+                        f'<div class="apex-before">{esc(rb.original)}</div></div>'
+                        f"<div>{right}</div></div>"
+                    )
+                if pairs:
+                    md(
+                        '<div class="apex-rule"></div>'
+                        '<div class="apex-h" style="padding-bottom:9.2px">Bullet by bullet</div>'
+                        + "".join(pairs)
+                    )
+                if rewrite.rewritten_summary:
+                    md(
+                        '<div class="apex-h" style="padding:27.6px 0 9.2px">Rewritten summary</div>'
+                        f'<div class="apex-prose">{esc(rewrite.rewritten_summary)}</div>'
+                    )
+                if rewrite.keywords_injected:
+                    md(
+                        '<div class="apex-h" style="padding:27.6px 0 13.8px">Keywords injected</div>'
+                        + tags(rewrite.keywords_injected)
+                    )
+
+        # ── Cover letter ──────────────────────────────────────────────────────────
+        with tab_cover:
+            if cover_letter:
+                contact = getattr(parsed_resume, "contact", None)
+                name = getattr(contact, "name", "") if contact else ""
+                location = getattr(contact, "location", "") if contact else ""
+                email = getattr(contact, "email", "") if contact else ""
+                phone = getattr(contact, "phone", "") if contact else ""
+                contact_line = " · ".join([x for x in [email, phone] if x])
+
+                md(
+                    '<div class="apex-row" style="padding-bottom:27.6px">'
+                    '<div class="apex-h-lg">Cover letter</div>'
+                    f'<div class="apex-kicker">{cover_letter.word_count} words'
+                    + (f" · {len(cover_letter.keywords_used)} keywords" if cover_letter.keywords_used else "")
+                    + "</div></div>"
+                )
+
+                # One HTML block: Streamlit renders separate calls as siblings, so the
+                # letter body cannot be a child of the plate any other way.
+                paragraphs = "".join(
+                    f"<p>{esc(p.strip())}</p>" for p in cover_letter.body.split("\n\n") if p.strip()
+                )
+                from_lines = "<br>".join(esc(x) for x in [name, location, contact_line] if x)
+                md(
+                    '<div class="apex-plate">'
+                    f'<div class="muted" style="text-align:right;font-size:13.5px;line-height:1.8">{from_lines}</div>'
+                    f'<div class="muted" style="font-size:13.5px;padding:27.6px 0 18.4px">{esc(datetime.now().strftime("%d %B %Y"))}</div>'
+                    f'<div class="apex-plate-subject">{esc(cover_letter.subject_line)}</div>'
+                    f"{paragraphs}"
+                    f'<p style="font-style:italic">{esc(name)}</p>'
+                    "</div>"
+                )
+
+                if cover_letter.keywords_used:
+                    md(
+                        '<div class="apex-rule"></div>'
+                        '<div class="apex-h" style="padding-bottom:13.8px">Keywords used</div>'
+                        + tags(cover_letter.keywords_used)
+                    )
                 md('<div class="apex-rule"></div>')
-            if st.button("Regenerate interview kit"):
-                st.session_state.interview_kit = None
-                st.rerun()
-
-    # ── Learning roadmap ──────────────────────────────────────────────────────
-    with tab_learn:
-        if learning_roadmap:
-            md(
-                '<div class="apex-h-lg">Learning roadmap</div>'
-                + (
-                    f'<div class="apex-note" style="padding-top:13.8px">Ready in '
-                    f"{esc(learning_roadmap.estimated_ready_in)}.</div>"
-                    if learning_roadmap.estimated_ready_in else ""
+                st.download_button(
+                    "Download .txt",
+                    data=f"{cover_letter.body}\n\n{name}",
+                    file_name="cover_letter.txt",
+                    mime="text/plain",
                 )
-            )
+            else:
+                md('<div class="apex-note">Cover letter not available.</div>')
 
-            if learning_roadmap.quick_wins:
+        # ── Interview prep ────────────────────────────────────────────────────────
+        with tab_int:
+            if st.session_state.interview_kit is None:
                 md(
-                    '<div class="apex-h" style="padding:27.6px 0 4.6px">Quick wins</div>'
-                    '<div class="apex-note" style="padding-bottom:13.8px">Under a week each</div>'
-                    '<div class="apex-numlist">'
-                    + "".join(
-                        f'<div class="apex-numitem"><span>{i}</span><span>{esc(w)}</span></div>'
-                        for i, w in enumerate(learning_roadmap.quick_wins, 1)
+                    '<div class="apex-h-lg">Interview prep</div>'
+                    '<div class="apex-note" style="padding:13.8px 0 27.6px">A tailored kit: HR, '
+                    "technical, behavioural and project questions drawn from this résumé and this "
+                    "role. It takes a minute or two and spends additional API credits.</div>"
+                )
+                if st.button("Prepare for interview", type="primary"):
+                    with st.spinner("Generating the interview kit…"):
+                        try:
+                            st.session_state.interview_kit = interview_agent.generate_kit(
+                                parsed_resume, parsed_jd
+                            )
+                            st.rerun()
+                        except Exception as e:
+                            import traceback
+                            st.error(f"Interview kit generation failed: {e}")
+                            st.code(traceback.format_exc())
+            else:
+                kit = st.session_state.interview_kit
+                for title, questions in [
+                    ("HR", kit.hr_questions),
+                    ("Technical", kit.technical_questions),
+                    ("Behavioural", kit.behavioral_questions),
+                    ("Project discussion", kit.project_questions),
+                ]:
+                    if not questions:
+                        continue
+                    md(
+                        '<div class="apex-row" style="padding:9.2px 0">'
+                        f'<div class="apex-h">{esc(title)}</div>'
+                        f'<div class="apex-kicker">{len(questions)} questions</div></div>'
                     )
-                    + "</div>"
+                    for i, q in enumerate(questions, 1):
+                        with st.expander(f"{i}. {q.question}"):
+                            md(
+                                '<div style="border-left:2px solid var(--apex-accent);padding-left:13.8px">'
+                                '<div class="apex-metric-label" style="color:var(--apex-accent-text);'
+                                'padding-bottom:9.2px">Suggested answer</div>'
+                                f'<div class="apex-prose">{esc(q.suggested_answer)}</div>'
+                                + (
+                                    '<div class="apex-metric-label" style="padding:18.4px 0 9.2px">Tip</div>'
+                                    f'<div class="apex-prose">{esc(q.tips)}</div>' if q.tips else ""
+                                )
+                                + "</div>"
+                            )
+                    md('<div class="apex-rule"></div>')
+                if st.button("Regenerate interview kit"):
+                    st.session_state.interview_kit = None
+                    st.rerun()
+
+        # ── Learning roadmap ──────────────────────────────────────────────────────
+        with tab_learn:
+            if learning_roadmap:
+                md(
+                    '<div class="apex-h-lg">Learning roadmap</div>'
+                    + (
+                        f'<div class="apex-note" style="padding-top:13.8px">Ready in '
+                        f"{esc(learning_roadmap.estimated_ready_in)}.</div>"
+                        if learning_roadmap.estimated_ready_in else ""
+                    )
                 )
 
-            if learning_roadmap.resources:
-                rows = []
-                for r in learning_roadmap.resources:
-                    url = ""
-                    if r.search_query:
-                        q = urllib.parse.quote(r.search_query)
-                        p = (r.platform or "").lower()
-                        if "youtube" in p:
-                            url = f"https://www.youtube.com/results?search_query={q}"
-                        elif "coursera" in p:
-                            url = f"https://www.coursera.org/search?query={q}"
-                        elif "udemy" in p:
-                            url = f"https://www.udemy.com/courses/search/?q={q}"
-                        else:
-                            url = f"https://www.google.com/search?q={q}"
-                    link = f' · <a href="{esc(url)}" target="_blank" rel="noopener">find it</a>' if url else ""
-                    detail = " · ".join([x for x in [esc(r.platform), esc(r.resource_type), esc(r.estimated_time)] if x])
-                    cls = "apex-tag" if (r.priority or "").lower() == "high" else "apex-tag apex-tag-neutral"
-                    rows.append(
-                        f'<tr><td>{esc(r.skill)}</td>'
-                        f'<td class="quiet" style="font-style:normal">{esc(r.resource_name)}<br>{detail}{link}</td>'
-                        f'<td class="right"><span class="{cls}">{esc(r.priority)}</span></td></tr>'
+                if learning_roadmap.quick_wins:
+                    md(
+                        '<div class="apex-h" style="padding:27.6px 0 4.6px">Quick wins</div>'
+                        '<div class="apex-note" style="padding-bottom:13.8px">Under a week each</div>'
+                        '<div class="apex-numlist">'
+                        + "".join(
+                            f'<div class="apex-numitem"><span>{i}</span><span>{esc(w)}</span></div>'
+                            for i, w in enumerate(learning_roadmap.quick_wins, 1)
+                        )
+                        + "</div>"
                     )
-                md(
-                    '<div class="apex-rule"></div>'
-                    '<div class="apex-h">Resources</div>'
-                    '<table class="apex-table"><thead><tr><th>Skill</th><th>Resource</th>'
-                    f'<th class="right">Priority</th></tr></thead><tbody>{"".join(rows)}</tbody></table>'
-                )
 
-            if learning_roadmap.project_ideas:
-                md(
-                    '<div class="apex-h" style="padding:36.8px 0 13.8px">Portfolio projects</div>'
-                    '<div class="apex-numlist">'
-                    + "".join(
-                        f'<div class="apex-numitem"><span>{i}</span><span>{esc(idea)}</span></div>'
-                        for i, idea in enumerate(learning_roadmap.project_ideas, 1)
+                if learning_roadmap.resources:
+                    rows = []
+                    for r in learning_roadmap.resources:
+                        url = ""
+                        if r.search_query:
+                            q = urllib.parse.quote(r.search_query)
+                            p = (r.platform or "").lower()
+                            if "youtube" in p:
+                                url = f"https://www.youtube.com/results?search_query={q}"
+                            elif "coursera" in p:
+                                url = f"https://www.coursera.org/search?query={q}"
+                            elif "udemy" in p:
+                                url = f"https://www.udemy.com/courses/search/?q={q}"
+                            else:
+                                url = f"https://www.google.com/search?q={q}"
+                        link = f' · <a href="{esc(url)}" target="_blank" rel="noopener">find it</a>' if url else ""
+                        detail = " · ".join([x for x in [esc(r.platform), esc(r.resource_type), esc(r.estimated_time)] if x])
+                        cls = "apex-tag" if (r.priority or "").lower() == "high" else "apex-tag apex-tag-neutral"
+                        rows.append(
+                            f'<tr><td>{esc(r.skill)}</td>'
+                            f'<td class="quiet" style="font-style:normal">{esc(r.resource_name)}<br>{detail}{link}</td>'
+                            f'<td class="right"><span class="{cls}">{esc(r.priority)}</span></td></tr>'
+                        )
+                    md(
+                        '<div class="apex-rule"></div>'
+                        '<div class="apex-h">Resources</div>'
+                        '<table class="apex-table"><thead><tr><th>Skill</th><th>Resource</th>'
+                        f'<th class="right">Priority</th></tr></thead><tbody>{"".join(rows)}</tbody></table>'
                     )
-                    + "</div>"
-                )
-        else:
-            md('<div class="apex-note">Learning roadmap not available.</div>')
+
+                if learning_roadmap.project_ideas:
+                    md(
+                        '<div class="apex-h" style="padding:36.8px 0 13.8px">Portfolio projects</div>'
+                        '<div class="apex-numlist">'
+                        + "".join(
+                            f'<div class="apex-numitem"><span>{i}</span><span>{esc(idea)}</span></div>'
+                            for i, idea in enumerate(learning_roadmap.project_ideas, 1)
+                        )
+                        + "</div>"
+                    )
+            else:
+                md('<div class="apex-note">Learning roadmap not available.</div>')

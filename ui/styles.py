@@ -492,6 +492,29 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
 .apex-section { gap: 12px; }
 .stApp .apex-h { padding-bottom: 2px; }
 
+/* ══ input panel: a column styled like the old sidebar ══════════════════════ */
+.stApp .block-container, .stApp [data-testid="stMainBlockContainer"] { max-width: 1320px !important; }
+.stApp .st-key-apex_panel {
+    background: var(--apex-panel) !important; border: 1.5px solid var(--apex-line-strong);
+    border-radius: 12px; padding: 22px 20px 24px !important; gap: 8px !important;
+    box-shadow: 4px 4px 0 var(--apex-line);
+}
+.stApp .st-key-apex_panel .stMarkdown p, .stApp .st-key-apex_panel label { font-size: 14.5px !important; color: var(--apex-ink) !important; }
+.stApp .st-key-apex_panel .apex-note { font-size: 13px; line-height: 1.5; }
+@media (min-width: 1000px) {
+    .stApp [data-testid="stHorizontalBlock"]:has(.st-key-apex_panel) > [data-testid="stColumn"]:first-child {
+        position: sticky; top: 16px; align-self: flex-start; min-width: 300px;
+    }
+}
+/* stack the panel above the content below 1000px (Streamlit only does it at 640px) */
+@media (max-width: 999px) {
+    .stApp [data-testid="stHorizontalBlock"]:has(.st-key-apex_panel) { flex-direction: column !important; gap: 28px !important; }
+    .stApp [data-testid="stHorizontalBlock"]:has(.st-key-apex_panel) > [data-testid="stColumn"] {
+        width: 100% !important; min-width: 100% !important; flex: 1 1 100% !important;
+    }
+    .stApp .st-key-apex_panel { padding: 20px 18px 22px !important; }
+}
+
 /* ══ theme switch pinned to the top-right corner ══════════════════════════ */
 .stApp .st-key-theme_toggle {
     position: fixed !important; top: 16px; right: 20px; z-index: 1000002;
